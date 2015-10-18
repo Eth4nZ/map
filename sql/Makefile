@@ -3,7 +3,7 @@ CXX = g++
 CXXFLAGS = -I/usr/include/mysql++ -I/usr/include/mysql
 LDFLAGS = -L/usr/lib -lmysqlpp -lmysqlclient -lnsl -lz -lm
 
-SOURCES = test.cpp
+SOURCES = insert.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
 EXECUTABLE = a
 

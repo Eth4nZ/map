@@ -26,7 +26,7 @@ int main() {
            cout << "Name: " << ares[i]["id"] << " - Address: " << ares[i]["name"] << endl;
 
         /* Let's get a count of something */
-        query << "SELECT COUNT(*) AS station FROM Station";
+        query << "SELECT COUNT(*) FROM Station";
         StoreQueryResult bres = query.store();
         cout << "Total rows: " << bres[0]["id"];
 

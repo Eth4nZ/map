@@ -1,48 +1,13 @@
-#include <iostream>
-#include <mysql++.h>
-#include <unistd.h>
+#include "readsql.h"
 
 using namespace std;
 using namespace mysqlpp;
 
-bool insertRoute(string routeID){
-    try {
-        Connection conn(false);
-        conn.set_option(new SetCharsetNameOption("utf8"));
-        conn.connect("map", "localhost", "root", "dtbs");
-        Query query = conn.query();
-
-        query << "SELECT * FROM Route where id = '" << routeID << "';";
-        StoreQueryResult ares = query.store();
-        if(ares.num_rows() > 0){
-            cerr << "exist duplicated route: " << routeID << endl;
-        }
-        else{
-            query << "insert into Route" << "(id) values" << "(" << "'" << routeID << "');";
-            query.execute();
-        }
-    } catch (BadQuery er) { // handle any connection or
-        // query errors that may come up
-        cerr << "Error: " << er.what() << endl;
-        return -1;
-    } catch (const BadConversion& er) {
-        // Handle bad conversions
-        cerr << "Conversion error: " << er.what() << endl <<
-                "\tretrieved data size: " << er.retrieved <<
-                ", actual size: " << er.actual_size << endl;
-        return -1;
-    } catch (const Exception& er) {
-        // Catch-all for any other MySQL++ exceptions
-        cerr << "Error: " << er.what() << endl;
-        return -1;
-    }
-
-    return (EXIT_SUCCESS);
+eSQL::eSQL(){
 }
 
-bool insertStation(string name, string routeID, int &st){
+bool eSQL::readGraph(Graph &g, int &nodes, int &edges){
     StoreQueryResult ares;
-
     try {
         Connection conn(false);
         conn.set_option(new SetCharsetNameOption("utf8"));
@@ -51,22 +16,16 @@ bool insertStation(string name, string routeID, int &st){
 
         query << "SELECT COUNT(*) AS Station_count FROM Station;";
         ares = query.store();
-        query << "ALTER TABLE Station AUTO_INCREMENT = " << ares[0]["Station_count"]+1 << ";";
-        query.execute();
+        nodes = ares[0]["Station_count"];
+        Graph g0(nodes);
 
-        query << "SELECT * FROM Station where name = '" << name << "';";
+        query << "SELECT * FROM Link;";
         ares = query.store();
-        if(ares.num_rows() > 0){    //if we have the duplicate staton;
-            st = ares[0]["id"];
-            //cerr << "exist duplicate station: "<< name << endl;
+        for (size_t i = 0; i < ares.num_rows(); i++){
+            edges++;
+            g0.connect(ares[i]["sfrom"], ares[i]["sto"], ares[i]["cost"]);
         }
-        else{
-            query << "insert into Station " << "(name, routeID) values" << "(" << "'" << name << "', '" << routeID << "');";
-            query.execute();
-            query << "SELECT * FROM Station where name = '" << name << "';";
-            ares = query.store();
-            st = ares[0]["id"];
-        }
+        g = g0;
     } catch (BadQuery er) { // handle any connection or
         // query errors that may come up
         cerr << "Error: " << er.what() << endl;
@@ -86,15 +45,17 @@ bool insertStation(string name, string routeID, int &st){
     return (EXIT_SUCCESS);
 }
 
-bool insertLink(int sfrom, int sto, string routeID, int cost){
+bool eSQL::readStation(int id, string &name){
+    name = "";
+    StoreQueryResult ares;
     try {
         Connection conn(false);
         conn.set_option(new SetCharsetNameOption("utf8"));
         conn.connect("map", "localhost", "root", "dtbs");
         Query query = conn.query();
-
-        query << "insert into Link" << "(sfrom, sto, routeID, cost) values" << "(" << sfrom << ", " << sto <<  ", '" << routeID << "', " << cost << ");";
-        query.execute();
+        query << "SELECT * FROM Station where id = " << id << ";";
+        StoreQueryResult ares = query.store();
+        name.append(ares[0]["name"]);
     } catch (BadQuery er) { // handle any connection or
         // query errors that may come up
         cerr << "Error: " << er.what() << endl;
@@ -113,36 +74,58 @@ bool insertLink(int sfrom, int sto, string routeID, int cost){
 
     return (EXIT_SUCCESS);
 }
-int main() {
-    string name1, name2;
-    string routeID;
-    int st1, st2;
-    int route_count, station_count, cost;
-    cin >> route_count;
-    for(int t = 0; t < route_count; t++){
-        cin >> routeID >> station_count;
-        insertRoute(routeID);
-        cin >> name1;
-        insertStation(name1, routeID, st1);
-//        station_count = 4;
-        if(routeID == "foot"){
-            cin >> cost;
-            cin >> name2;
-            insertStation(name2, routeID, st2);
-            insertLink(st1, st2, routeID, cost);
-            insertLink(st2, st1, routeID, cost);
+
+bool eSQL::readLink(int sfrom, int sto, string &routeID, string lastRouteID, int &cost){
+    StoreQueryResult ares;
+    int cost_temp;
+    try {
+        Connection conn(false);
+        conn.set_option(new SetCharsetNameOption("utf8"));
+        conn.connect("map", "localhost", "root", "dtbs");
+        Query query = conn.query();
+        query << "SELECT * FROM Link where sfrom = " << sfrom << " and sto = " << sto <<  ";";
+        StoreQueryResult ares = query.store();
+        if(ares.num_rows() > 1){
+            int mincost = ares[0]["cost"];
+            routeID = "";
+            routeID.append(ares[0]["routeID"]);
+            for (size_t i = 0; i < ares.num_rows(); i++){
+                if(ares[i]["routeID"] == lastRouteID){
+                    routeID = "";
+                    routeID.append(ares[i]["routeID"]);
+                    cost = ares[i]["cost"];
+                }
+                else{
+                    cost_temp = ares[i]["cost"];
+                    if(cost_temp < mincost){
+                        mincost = ares[i]["cost"];
+                        routeID = "";
+                        routeID.append(ares[i]["routeID"]);
+                    }
+                }
+            }
         }
         else{
-            for(int i = 1; i < station_count; i++){
-                cin >> cost;
-                cin >> name2;
-                insertStation(name2, routeID, st2);
-                insertLink(st1, st2, routeID, cost);
-                st1 = st2;
-            }
-            cout << "completed: " << routeID << endl;
+            routeID = "";
+            routeID.append(ares[0]["routeID"]);
+            cost = ares[0]["cost"];
         }
+    } catch (BadQuery er) { // handle any connection or
+        // query errors that may come up
+        cerr << "Error: " << er.what() << endl;
+        return -1;
+    } catch (const BadConversion& er) {
+        // Handle bad conversions
+        cerr << "Conversion error: " << er.what() << endl <<
+                "\tretrieved data size: " << er.retrieved <<
+                ", actual size: " << er.actual_size << endl;
+        return -1;
+    } catch (const Exception& er) {
+        // Catch-all for any other MySQL++ exceptions
+        cerr << "Error: " << er.what() << endl;
+        return -1;
     }
-}
 
+    return (EXIT_SUCCESS);
+}
 

@@ -1,19 +1,22 @@
-CC = g++
-CFLAGS = -c -Wall
+CXX = g++
 
-SOURCES = main.cpp FloydWarshall.cpp
+CXXFLAGS = -c -Wall -I/usr/include/mysql++ -I/usr/include/mysql
+LDFLAGS = -L/usr/lib -lmysqlpp -lmysqlclient -lnsl -lz -lm
+
+SOURCES = main.cpp FloydWarshall.cpp readsql.cpp
 OBJECTS = $(SOURCES:.cpp=.o)
-EXECUTABLE = a
+EXECUTABLE = a.out
 
 all: $(SOURCES) $(EXECUTABLE)
-
+	    
 $(EXECUTABLE): $(OBJECTS)
-	$(CC) $(OBJECTS) -o $@
+	$(CXX) $(OBJECTS) -o $@ $(LDFLAGS)
 
 .cpp.o:
-	$(CC) $(CFLAGS) $< -o $@
+	$(CXX) $< -o $@ $(CXXFLAGS) $(LDFLAGS)
 
 .phony: clean
 
 clean:
-	-rm *o a
+	rm *.o
+
